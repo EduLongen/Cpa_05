@@ -1,0 +1,72 @@
+name: CI/CD pipeline
+
+on:
+  pull_request_review:
+    types:
+      - submitted
+    branches:
+      - main
+      
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      MYSQL_DATABASE: ${{ vars.MYSQL_DATABASE }}
+      MYSQL_USER: ${{ vars.MYSQL_USER }}
+      MYSQL_PASSWORD: ${{ vars.MYSQL_PASSWORD }}
+      MYSQL_ROOT_PASSWORD: ${{ vars.MYSQL_ROOT_PASSWORD }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3.4.0
+      
+      - name: Set up JAVA
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+          
+      - name: Up MySQL container
+        run: docker-compose up -d db-cpa
+      
+      - name: Build
+        run: mvn --batch-mode -DskipTests package
+
+      - name: test
+        run: mvn test -DDB_HOST=jdbc:mysql://localhost:3306/${{ vars.MYSQL_DATABASE }} 
+          -DDB_USER=${{ vars.MYSQL_USER }} 
+          -DDB_PASS=${{ vars.MYSQL_PASSWORD }} 
+          -DJWT_KEY=${{ vars.JWT_KEY }}
+          -DCORS_FRONT_DEV=${{ vars.CORS_FRONT_DEV }} 
+          -DEMAIL_SENDER=${{ vars.EMAIL_SENDER }} 
+          -DPASSWORD_EMAIL=${{ vars.PASSWORD_EMAIL }} 
+          -DPROFILE=${{ vars.PROFILE }}
+          -DADMIN_ACCOUNT=${{ vars.ADMIN_ACCOUNT }}
+          -DADMIN_PASSWORD=${{ vars.ADMIN_PASSWORD }}
+          -DUSER_ACCOUNT=${{ vars.USER_ACCOUNT }}
+          -DUSER_PASSWORD=${{ vars.USER_PASSWORD }}
+
+      - name: Down Mysql for tests
+        run: docker-compose down mysql_db
+        
+  build-and-up-dockerHub:
+    needs: tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3.4.0
+      
+    - name: DockerHub login
+      uses: docker/login-action@v2.1.0
+      with:
+        username: ${{ secrets.DOCKER_USER }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+        
+    - name: Build Docker image
+      uses: docker/build-push-action@v4.0.0
+      with:
+        context: .
+        push: true
+        tags: |
+          viniciuspicheidt/cpa-back:latest
