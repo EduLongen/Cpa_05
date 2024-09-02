@@ -10,7 +10,6 @@ Bem-vindo a **CPA**! Este é um sistema educacional desenvolvido para ajudar est
 - [Configuração](#configuração)
 - [Execução](#execução)
 - [Contribuindo](#contribuindo)
-- [Licença](#licença)
 
 ## Descrição
 
